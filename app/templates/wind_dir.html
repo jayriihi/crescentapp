@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Styled Line Chart for Wind Direction</title>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+    .chartBox {
+            width: 100%; /* Use 100% width to fill the container */
+            max-width: 1000px; /* Set a maximum width */
+            border-radius: 25px;
+            border: solid 3px rgb(12, 6, 193);
+            background: white;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+}
+
+/* Media query for smaller devices */
+@media (max-width: 768px) {
+    .chartBox {
+        width: 90%; /* Adjust width for smaller screens */
+        padding: 15px; /* Reduce padding for small screens */
+    }
+}
+    .chartBox canvas {
+        width: 100%; /* Make canvas width responsive */
+        height: auto; /* Ensure the aspect ratio is maintained */
+}
+
+    .container {
+        width: 100%;
+        max-width: 100%; /* Ensure the container doesn't exceed the screen width */
+        margin: 0 auto;
+}
+
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="chartBox">
+            <canvas id="lineChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        var ctx = document.getElementById('lineChart').getContext('2d');
+
+        // Receive data points from Flask
+        const dataPoints = {{ wind_dirs | tojson }};
+        const labels = {{ labels | tojson }};
+
+        // Function to normalize wind direction (handle 0/360 boundary)
+        function normalizeAngle(angle) {
+            return (angle + 360) % 360;
+        }
+
+        // Normalize data points
+        const normalizedDataPoints = dataPoints.map(normalizeAngle);
+
+        // Function to calculate the trend line, adjusted for circular data
+        function calculateTrendLine(data) {
+            const n = data.length;
+            const sumX = data.reduce((acc, _, index) => acc + index, 0);
+            const sumY = data.reduce((acc, value) => acc + value, 0);
+            const sumXY = data.reduce((acc, value, index) => acc + index * value, 0);
+            const sumX2 = data.reduce((acc, _, index) => acc + index * index, 0);
+
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+
+            return data.map((_, index) => normalizeAngle(slope * index + intercept));
+        }
+
+        const trendLineData = calculateTrendLine(normalizedDataPoints);
+
+        // Calculate the trend line change over the 3 hours and round to nearest degree
+        const trendChange = Math.round(trendLineData[trendLineData.length - 1] - trendLineData[0]);
+        const changeText = trendChange >= 0 ? `Trend diff 3 hrs +${trendChange}°` : `Trend change 3 hrs ${trendChange}°`;
+
+        // Set the Y-axis centered on the initial trend line angle with a 180° range
+        const initialTrendLineAngle = trendLineData[0];
+        let yAxisMin = initialTrendLineAngle - 90;
+        let yAxisMax = initialTrendLineAngle + 90;
+
+        // Handle wrapping around 0° and 360°
+        if (yAxisMin < 0) {
+            yAxisMin += 360;
+        }
+        if (yAxisMax > 360) {
+            yAxisMax -= 360;
+        }
+
+        // Custom plugin to draw text
+        const customTextPlugin = {
+        id: 'customTextPlugin',
+        afterDraw: function(chart) {
+        const ctx = chart.ctx;
+        const legend = chart.legend;
+
+        // Position the text next to the legend labels
+        const textX = legend.left + legend.width - 110; // Position slightly to the right of the legend
+        const textY = legend.top + legend.height / 4 + 5; // Vertically centered with the legend
+
+        ctx.save();
+        ctx.font = '12px Arial';
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'left';
+        ctx.fillText(changeText, textX, textY);
+        ctx.restore();
+    }
+};
+
+
+var lineChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Dir',
+            data: normalizedDataPoints,
+            borderColor: 'rgba(30, 144, 255, 1)',
+            backgroundColor: 'rgba(0, 99, 132, 0.1)',
+            pointBackgroundColor: 'rgba(0, 99, 132, 0.9)',
+            fill: false,
+            tension: 0.5,
+            borderWidth: 2,
+            pointRadius: 0
+        },
+        {
+            label: 'Trend',
+            data: trendLineData,
+            borderColor: 'rgba(255, 0, 0, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+            pointBackgroundColor: 'rgba(255, 99, 132, 0.9)',
+            fill: false,
+            pointRadius: 0,
+            borderWidth: 2,
+            tension: 0
+        }]
+    },
+    options: {
+        scales: {
+            y: {
+                min: yAxisMin,
+                max: yAxisMax,
+                title: {
+                    display: true,
+                    text: 'Degrees'
+                },
+                ticks: {
+                    stepSize: 45,
+                    callback: function(value) {
+                        return Math.round(normalizeAngle(value));
+                    }
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Time'
+                },
+                ticks: {
+                    callback: function(value, index, ticks) {
+                        const totalLabels = labels.length;
+                        const step = Math.floor(totalLabels / 3);
+                        if (index === 0) {
+                            return labels[0];
+                        } else if (index === step) {
+                            return labels[step];
+                        } else if (index === 2 * step) {
+                            return labels[2 * step];
+                        } else if (index === totalLabels - 1) {
+                            return labels[totalLabels - 1];
+                        }
+                        return '';
+                    },
+                    autoSkip: false,
+                    maxTicksLimit: 4
+                }
+            }
+        },
+        layout: {
+            padding: {
+                right: 50, // Add padding to make room for the custom text
+                left: 10   // Reduce left padding to move the legend closer to the left
+            }
+        },
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'top',
+                align: 'start', // Aligns the legend to the start (left)
+                labels: {
+                    boxWidth: 10,
+                    boxHeight: 10,
+                    padding: 5
+                }
+            }
+        }
+    },
+    plugins: [customTextPlugin]
+});
+    </script>
+
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

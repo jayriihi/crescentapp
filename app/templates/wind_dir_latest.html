@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.chartCard {
+    width: auto;
+    margin: 25px auto;
+    background: rgb(23, 255, 255);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chartBox {
+    width: 75%;
+    border-radius: 25px;
+    border: solid 3px rgb(12, 6, 193);
+    background: white;
+    margin: auto;
+    margin-bottom: 35px;
+}
+</style>
+
+<div class="chartCard">
+    <div class="chartBox">
+        <canvas id="lineChart"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    var ctx = document.getElementById('lineChart').getContext('2d');
+
+    // Receive data points from Flask
+    const dataPoints = {{ wind_dirs | tojson }};
+    const labels = {{ labels | tojson }};
+
+    // Function to calculate the trend line
+    function calculateTrendLine(data) {
+        const n = data.length;
+        const sumX = data.reduce((acc, _, index) => acc + index, 0);
+        const sumY = data.reduce((acc, value) => acc + value, 0);
+        const sumXY = data.reduce((acc, value, index) => acc + index * value, 0);
+        const sumX2 = data.reduce((acc, _, index) => acc + index * index, 0);
+
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        return data.map((_, index) => slope * index + intercept);
+    }
+
+    const trendLineData = calculateTrendLine(dataPoints);
+
+    // Calculate the degree change over the 3 hours
+    const degreeChange = (dataPoints[dataPoints.length - 1] - dataPoints[0]).toFixed(2);
+    const changeText = degreeChange >= 0 ? `+${degreeChange}° (Clockwise)` : `${degreeChange}° (Counterclockwise)`;
+
+    // Custom plugin to draw text
+    const customTextPlugin = {
+        id: 'customTextPlugin',
+        afterDraw: function(chart) {
+            const ctx = chart.ctx;
+            ctx.save();
+            ctx.font = '14px Arial, Helvetica, sans-serif';
+            ctx.fillStyle = '#0c20d3';  // Match the color from the site style
+            ctx.textAlign = 'center';
+            ctx.fillText(changeText, chart.chartArea.right - 100, chart.chartArea.top + 20);
+            ctx.restore();
+        }
+    };
+
+    var lineChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Wind Direction (degrees)',
+                data: dataPoints,
+                borderColor: 'rgba(12, 6, 193, 0.6)',
+                backgroundColor: 'rgba(23, 255, 255, 0.1)',
+                pointBackgroundColor: 'rgba(12, 6, 193, 0.9)',
+                fill: false,
+                tension: 0.5,
+                pointRadius: 0
+            },
+            {
+                label: 'Trend Line',
+                data: trendLineData,
+                borderColor: 'rgba(12, 6, 193, 0.6)',
+                backgroundColor: 'rgba(23, 255, 255, 0.1)',
+                pointBackgroundColor: 'rgba(12, 6, 193, 0.9)',
+                fill: false,
+                pointRadius: 0,
+                borderWidth: 2,
+                tension: 0
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            responsive: true,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 360,
+                    title: {
+                        display: true,
+                        text: 'Degrees',
+                        color: '#0c20d3',
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif',
+                            size: 14
+                        }
+                    },
+                    ticks: {
+                        stepSize: 45,
+                        color: '#0c20d3',
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif',
+                            size: 12
+                        }
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time',
+                        color: '#0c20d3',
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif',
+                            size: 14
+                        }
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        maxTicksLimit: 4,
+                        color: '#0c20d3',
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif',
+                            size: 12
+                        }
+                    }
+                }
+            },
+            layout: {
+                padding: {
+                    right: 20
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        color: '#0c20d3',
+                        font: {
+                            family: 'Arial, Helvetica, sans-serif',
+                            size: 12
+                        }
+                    }
+                }
+            }
+        },
+        plugins: [customTextPlugin]
+    });
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+

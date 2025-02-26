@@ -1,0 +1,20 @@
+# Python cache and compiled files
+__pycache__/
+app/__pycache__/
+*.pyc
+
+# IDE and editor settings
+.vscode/
+
+# Images (if they are generated or temporary)
+*.png
+
+# Temporary or test files
+test.py
+test2.py
+
+# Folders for temporary or unused files
+app/templates/for deletion/
+
+# Scratch for testing a developing
+scratch/
