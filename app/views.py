@@ -125,6 +125,12 @@ def wind():
 
     string_start_time, string_end_time, h, m, sesh_start_date_str, sesh_start_time_str,avg_wind_spd, wind_max, wind_min,avg_wind_dir, date_time_index_series_str, wind_spd_series = wind_data_functionsc.get_sesh_wind(session['sessiondatetime'],  session['duration'])
 
+        # Round and convert to integers for display
+    avg_wind_spd = round(avg_wind_spd, 1)
+    wind_max = int(round(wind_max, 0))
+    wind_min = int(round(wind_min, 0))
+    avg_wind_dir = int(round(avg_wind_dir, 0))
+
      # Check if the data is flatlined (no variation in wind speed)
     is_crescent_down = len(set(wind_spd_series)) <= 1  # All values are the same or no data
 

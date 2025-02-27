@@ -18,3 +18,7 @@ app/templates/for deletion/
 
 # Scratch for testing a developing
 scratch/
+
+# creds.json cannot be shared publicly
+
+creds.json

@@ -131,62 +131,6 @@ def fetch_pred_cres_data(string_start_time=None, string_end_time=None):
 
     return avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series
 
-
-'''def fetch_pred_cres_data(string_start_time=None, string_end_time=None):
-    if string_start_time is None or string_end_time is None:
-        # Get beginning and ending times for the past hour and format to string
-        now = datetime.now()
-        one_hour_ago = now - timedelta(hours=1)
-
-        string_start_time = dt.datetime.strftime(one_hour_ago, "%Y-%m-%d %H:%M")
-        string_end_time = dt.datetime.strftime(now, "%Y-%m-%d %H:%M")
-
-    # Fetch data specifically from pred_cres
-    gsheetid = "1FIqEkMQv1468IU5gm_CrF1Vr6Ir1NF6PTiFDgcoGFo8"  # Same ID, different sheet
-    sheet_name = "pred_cresc"  # Specify pred_cres as the sheet name
-    num_rows = 2016
-    gsheet_url = f"https://docs.google.com/spreadsheets/d/{gsheetid}/gviz/tq?tqx=out:csv&sheet={sheet_name}&range=A1:D{num_rows}"
-
-    try:
-        # Fetch data from pred_cres
-        df = pd.read_csv(gsheet_url, skiprows=2)
-    except Exception as e:
-        print(f"Error fetching pred_cres data: {e}")
-        return None, None, None, None, [], []
-
-    # Process the fetched data
-    df.set_index('Date/Time', inplace=True)
-    df.rename(columns={
-        'Date/Time': 'date_time',
-        'Unnamed: 1': 'wind_spd',
-        'Unnamed: 2': 'wind_max',
-        'Unnamed: 3': 'wind_dir'
-    }, inplace=True)
-    df.index = pd.to_datetime(df.index)
-
-    # Extract the session data using string_start_time and string_end_time
-    sesh = df.sort_index().loc[string_start_time:string_end_time]
-
-    if sesh.empty:
-        print(f"No data available for the time range {string_start_time} to {string_end_time}")
-        return None, None, None, None, [], []  # Handle empty session
-
-    # Check if session data is empty
-    if sesh.empty:
-        print(f"No data available in pred_cres for the time range {string_start_time} to {string_end_time}.")
-        return None, None, None, None, [], []
-
-    # Calculate statistics for the session
-    avg_wind_spd, wind_max, wind_min, avg_wind_dir = get_wind_speed_data(sesh)
-
-    # Prepare series for graphing
-    date_time_index_series = list(sesh.index)
-    date_time_index_series_str = [t.strftime("%H:%M") for t in date_time_index_series]
-    wind_spd_series = list(sesh["wind_spd"])
-
-    #return sesh, date_time_index_series_str, wind_spd_series
-    return avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series'''
-
 def get_wind_speed_data(sesh):
     # get avg wind speed during session time and round to one decimal place
     avg_wind_spd = sesh["wind_spd"].mean()
@@ -229,7 +173,23 @@ def get_avg_wind_dir(wind_dir_series):
         #print("The average wind direction for this session is  ", nn_avg_wind_dir)
         return nn_avg_wind_dir
 
-    
+    #new version of get_sesh_wind which switches to pred_cres if cres is down
+def get_sesh_wind(datetimelocal_str, duration_str):
+    string_start_time, string_end_time, h, m, sesh_start_date_str, sesh_start_time_str = format_date_time(datetimelocal_str, duration_str)
+
+    # Try retrieving Crescent data first
+    avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series = data_frame_set(string_start_time, string_end_time)
+
+    # Check if Crescent data is flatlined or missing
+    is_crescent_down = len(set(wind_spd_series)) <= 1  # All values are the same or no data
+
+    if is_crescent_down:
+        print("Crescent data appears to be down. Fetching predicted Crescent data...")
+        avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series = fetch_pred_cres_data(string_start_time, string_end_time)
+
+    return string_start_time, string_end_time, h, m, sesh_start_date_str, sesh_start_time_str, avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series
+
+    ''' have added new function above which switches to pred_cres if cres is down
 def get_sesh_wind(datetimelocal_str,duration_str):
     string_start_time, string_end_time, h, m, sesh_start_date_str, sesh_start_time_str = format_date_time(datetimelocal_str,duration_str)
 
@@ -239,7 +199,7 @@ def get_sesh_wind(datetimelocal_str,duration_str):
     #print(date_time_of_wind_speed,avg_wind_speeds_for_sesh)
     #date_time_index_series_str, wind_spd_series = get_sesh_series_for_graphs(sesh)
     #print(date_time_index_series, wind_spd_series)
-    return string_start_time, string_end_time, h, m, sesh_start_date_str, sesh_start_time_str,avg_wind_spd, wind_max, wind_min,avg_wind_dir, date_time_index_series_str, wind_spd_series
+    return string_start_time, string_end_time, h, m, sesh_start_date_str, sesh_start_time_str,avg_wind_spd, wind_max, wind_min,avg_wind_dir, date_time_index_series_str, wind_spd_series'''
 
     #print(get_sesh_wind('2024-05-11T13:10','2:0'))
 
@@ -293,60 +253,6 @@ def pearl_8hr_quik():
     return avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series
 
 
-'''def pearl_1hr_quik():
-    # Get beginning and ending times for the past hour and format to string
-    now = datetime.now()
-    now1 = now - timedelta(hours=1)
-
-    string_now1 = dt.datetime.strftime(now1, "%Y-%m-%d %H:%M")
-    string_now = dt.datetime.strftime(now, "%Y-%m-%d %H:%M")
-
-    #avg_wind_spd, wind_max, wind_min,avg_wind_dir = get_wind_speed_data(sesh)
-
-    # Unpack all 7 returned values from data_frame_set
-    avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series = data_frame_set(string_now1, string_now)
-
-    # Return the same values
-    return avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series
-
-    #print(get_sesh_wind('2024-12-18T13:10','2,0'))  
-    #pearl_1hr_quik()
-
-def pearl_3hr_quik():
-    now = datetime.now()
-    now3 = now-timedelta(hours=3)
-
-    string_now3 = dt.datetime.strftime(now3,"%Y-%m-%d %H:%M")
-    string_now = dt.datetime.strftime(now,"%Y-%m-%d %H:%M")
-
-    sesh, avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series = data_frame_set(string_now3, string_now)
-    #date_time_of_wind_speed, avg_wind_speeds_for_sesh = get_df_series_for_graphs(sesh)
-    #avg_wind_spd, wind_max, wind_min,avg_wind_dir = get_wind_speed_data(sesh)
-    #print(date_time_of_wind_speed,avg_wind_speeds_for_sesh)
-    #date_time_index_series_str, wind_spd_series = get_sesh_series_for_graphs(sesh)
-    #print(date_time_index_series, wind_spd_series)
-    return avg_wind_spd, wind_max, wind_min,avg_wind_dir, date_time_index_series_str, wind_spd_series
-    #print(get_sesh_wind('2022-05-11T13:10','2,0')) 
-#pearl_1hr_quik()
-
-
-def pearl_8hr_quik():
-    now = datetime.now()
-    now8 = now-timedelta(hours=8)
-
-    string_now8 = dt.datetime.strftime(now8,"%Y-%m-%d %H:%M")
-    string_now = dt.datetime.strftime(now,"%Y-%m-%d %H:%M")
-
-    avg_wind_spd, wind_max, wind_min, avg_wind_dir, date_time_index_series_str, wind_spd_series = data_frame_set(string_now8, string_now)
-    #date_time_of_wind_speed, avg_wind_speeds_for_sesh = get_df_series_for_graphs(sesh)
-    #avg_wind_spd, wind_max, wind_min,avg_wind_dir = get_wind_speed_data(sesh)
-    #print(date_time_of_wind_speed,avg_wind_speeds_for_sesh)
-    #date_time_index_series_str, wind_spd_series = get_sesh_series_for_graphs(sesh)
-    #print(date_time_index_series, wind_spd_series)
-    #print(get_sesh_wind('2024-05-11T13:10','2:0'))
-    return avg_wind_spd, wind_max, wind_min,avg_wind_dir, date_time_index_series_str, wind_spd_series'''
-    
-
 # 3 hour df for wind_dir.html chart
 def wind_dir_3hours():
     now = datetime.now()
@@ -389,7 +295,6 @@ def wind_direction_change_1hour():
     final_dir = df['wind_dir'].iloc[-1]
     #print(f"final_wind_dir {final_dir}")
     
-
     #print(f"Initial direction (earliest): {initial_dir}")
     #print(f"Final direction (most recent): {final_dir}")
 
