@@ -20,5 +20,8 @@ app/templates/for deletion/
 scratch/
 
 # creds.json cannot be shared publicly
-
 creds.json
+
+#images folder does not need tracking
+images/
+
